@@ -1,0 +1,3 @@
+# Cyber Tech - Zero mandatory external dependencies for core engine
+# Standard library handles PCAP parsing, ASN.1 DER decoding, SHA-512 Merkle trees, and HTTP REST API.
+gunicorn>=21.2.0
