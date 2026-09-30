@@ -4,115 +4,118 @@
  */
 
 document.addEventListener("DOMContentLoaded", () => {
-  const sampleListContainer = document.getElementById("sample-list-container");
-  const pcapSearch = document.getElementById("pcap-search");
-  const scannerPlaceholder = document.getElementById("scanner-placeholder");
-  const scannerResults = document.getElementById("scanner-results");
-
-  // Tabs
-  const tabPresets = document.getElementById("tab-presets");
-  const tabUpload = document.getElementById("tab-upload");
-  const viewPresets = document.getElementById("view-presets");
-  const viewUpload = document.getElementById("view-upload");
-
-  // Upload elements
-  const dropzone = document.getElementById("dropzone");
+  const scenariosRow = document.getElementById("scenarios-row");
   const fileInput = document.getElementById("pcap-file-input");
-  const btnBrowseFile = document.getElementById("btn-browse-file");
+  const btnUploadTrigger = document.getElementById("btn-upload-trigger");
   const uploadStatus = document.getElementById("upload-status");
 
-  // Buttons
-  const btnClearData = document.getElementById("btn-clear-data");
-  const btnCopyConfig = document.getElementById("btn-copy-config");
-  const btnInfo = document.getElementById("btn-info");
-  const modalInfo = document.getElementById("modal-info");
-  const modalClose = document.getElementById("modal-close");
+  // Navbar Quick Action Buttons
   const btnQuickEnterprise = document.getElementById("btn-quick-enterprise");
   const btnQuickAttack = document.getElementById("btn-quick-attack");
 
+  // Score Criteria Modal Buttons
+  const btnScoreCriteria = document.getElementById("btn-score-criteria");
+  const modalCriteria = document.getElementById("modal-criteria");
+  const modalCriteriaClose = document.getElementById("modal-criteria-close");
+
+  // System Architecture Info Modal Buttons
+  const btnInfo = document.getElementById("btn-info");
+  const modalInfo = document.getElementById("modal-info");
+  const modalInfoClose = document.getElementById("modal-info-close");
+
+  // Copy Syntax Button
+  const btnCopySyntax = document.getElementById("btn-copy-syntax");
+
   let allSamples = [];
-  let currentReport = null;
 
   // -----------------------------------------------------------------------
-  // Tab Switching
+  // Modal Event Listeners
   // -----------------------------------------------------------------------
-  tabPresets.addEventListener("click", () => {
-    tabPresets.classList.add("active");
-    tabUpload.classList.remove("active");
-    viewPresets.classList.remove("hidden");
-    viewUpload.classList.add("hidden");
+  if (btnScoreCriteria && modalCriteria) {
+    btnScoreCriteria.addEventListener("click", () => {
+      modalCriteria.classList.remove("hidden");
+    });
+  }
+
+  if (modalCriteriaClose && modalCriteria) {
+    modalCriteriaClose.addEventListener("click", () => {
+      modalCriteria.classList.add("hidden");
+    });
+  }
+
+  if (btnInfo && modalInfo) {
+    btnInfo.addEventListener("click", () => {
+      modalInfo.classList.remove("hidden");
+    });
+  }
+
+  if (modalInfoClose && modalInfo) {
+    modalInfoClose.addEventListener("click", () => {
+      modalInfo.classList.add("hidden");
+    });
+  }
+
+  // Close modals when clicking overlay background
+  window.addEventListener("click", (e) => {
+    if (e.target === modalCriteria) modalCriteria.classList.add("hidden");
+    if (e.target === modalInfo) modalInfo.classList.add("hidden");
   });
 
-  tabUpload.addEventListener("click", () => {
-    tabUpload.classList.add("active");
-    tabPresets.classList.remove("active");
-    viewUpload.classList.remove("hidden");
-    viewPresets.classList.add("hidden");
-  });
-
   // -----------------------------------------------------------------------
-  // Load Preset Forensic Scenarios
+  // Load and Render Preset Scenarios
   // -----------------------------------------------------------------------
   async function loadSamples() {
     try {
       const res = await fetch("/api/samples");
       allSamples = await res.json();
-      renderSamples(allSamples);
+      renderScenarioChips(allSamples);
+
+      // Auto-analyze the first hardened sample on page load
+      if (allSamples.length > 0) {
+        analyzeSample(allSamples[0].filename);
+      }
     } catch (e) {
-      sampleListContainer.innerHTML = `<div class="error-state">Failed to load preset scenarios: ${e.message}</div>`;
+      if (scenariosRow) {
+        scenariosRow.innerHTML = `<div class="scenario-loading" style="color:#f43f5e;">Failed to load preset scenarios: ${e.message}</div>`;
+      }
     }
   }
 
-  function renderSamples(samples) {
-    if (!samples || samples.length === 0) {
-      sampleListContainer.innerHTML = `<div class="empty-state">No preset PCAP scenarios found.</div>`;
-      return;
-    }
+  function renderScenarioChips(samples) {
+    if (!scenariosRow) return;
+    scenariosRow.innerHTML = "";
 
-    sampleListContainer.innerHTML = "";
-    samples.forEach(sample => {
-      const card = document.createElement("div");
-      card.className = "scenario-card";
-      card.dataset.filename = sample.filename;
+    samples.forEach((sample, idx) => {
+      const chip = document.createElement("div");
+      chip.className = `scenario-chip ${idx === 0 ? "active" : ""}`;
+      chip.dataset.filename = sample.filename;
 
-      let pillClass = "pill-secure";
-      if (sample.severity === "CRITICAL") pillClass = "pill-critical";
-      else if (sample.severity === "HIGH") pillClass = "pill-high";
+      let badgeClass = "chip-secure";
+      if (sample.severity === "CRITICAL") badgeClass = "chip-critical";
+      else if (sample.severity === "HIGH") badgeClass = "chip-high";
 
-      card.innerHTML = `
-        <div class="scenario-top">
-          <span class="scenario-name">${escapeHtml(sample.name)}</span>
-          <span class="scenario-pill ${pillClass}">${sample.severity}</span>
+      chip.innerHTML = `
+        <div class="scenario-chip-top">
+          <span class="scenario-chip-title" title="${escapeHtml(sample.name)}">${escapeHtml(sample.name)}</span>
+          <span class="scenario-chip-badge ${badgeClass}">${sample.severity}</span>
         </div>
-        <div class="scenario-desc">${escapeHtml(sample.description)}</div>
+        <div class="scenario-chip-desc">${escapeHtml(sample.description)}</div>
       `;
 
-      card.addEventListener("click", () => {
-        document.querySelectorAll(".scenario-card").forEach(c => c.classList.remove("active"));
-        card.classList.add("active");
+      chip.addEventListener("click", () => {
+        document.querySelectorAll(".scenario-chip").forEach(c => c.classList.remove("active"));
+        chip.classList.add("active");
         analyzeSample(sample.filename);
       });
 
-      sampleListContainer.appendChild(card);
+      scenariosRow.appendChild(chip);
     });
   }
 
-  // Filter Presets
-  pcapSearch.addEventListener("input", (e) => {
-    const q = e.target.value.toLowerCase();
-    const filtered = allSamples.filter(s => 
-      s.name.toLowerCase().includes(q) || 
-      s.description.toLowerCase().includes(q) ||
-      s.filename.toLowerCase().includes(q)
-    );
-    renderSamples(filtered);
-  });
-
   // -----------------------------------------------------------------------
-  // Run Analysis on Preset Sample
+  // Analysis Trigger via REST API
   // -----------------------------------------------------------------------
   async function analyzeSample(filename) {
-    showLoading();
     try {
       const res = await fetch("/api/analyze-sample", {
         method: "POST",
@@ -121,48 +124,34 @@ document.addEventListener("DOMContentLoaded", () => {
       });
       const data = await res.json();
       if (data.error) {
-        alert("Analysis Error: " + data.error);
+        alert("Forensic Analysis Error: " + data.error);
         return;
       }
       renderReport(data);
     } catch (e) {
-      alert("Failed to analyze scenario: " + e.message);
+      console.error("Analysis execution error:", e);
     }
   }
 
   // -----------------------------------------------------------------------
-  // PCAP File Upload Handling
+  // File Upload Ingestion
   // -----------------------------------------------------------------------
-  btnBrowseFile.addEventListener("click", () => fileInput.click());
-  dropzone.addEventListener("click", (e) => {
-    if (e.target !== btnBrowseFile) fileInput.click();
-  });
+  if (btnUploadTrigger && fileInput) {
+    btnUploadTrigger.addEventListener("click", () => fileInput.click());
+    fileInput.addEventListener("change", (e) => {
+      if (e.target.files && e.target.files.length > 0) {
+        uploadPCAP(e.target.files[0]);
+      }
+    });
+  }
 
-  dropzone.addEventListener("dragover", (e) => {
-    e.preventDefault();
-    dropzone.classList.add("dragover");
-  });
-  dropzone.addEventListener("dragleave", () => dropzone.classList.remove("dragover"));
-  dropzone.addEventListener("drop", (e) => {
-    e.preventDefault();
-    dropzone.classList.remove("dragover");
-    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      uploadFile(e.dataTransfer.files[0]);
-    }
-  });
+  async function uploadPCAP(file) {
+    if (!uploadStatus) return;
+    uploadStatus.classList.remove("hidden");
+    uploadStatus.textContent = `Ingesting & analyzing capture: ${file.name}...`;
 
-  fileInput.addEventListener("change", (e) => {
-    if (e.target.files && e.target.files.length > 0) {
-      uploadFile(e.target.files[0]);
-    }
-  });
-
-  async function uploadFile(file) {
     const formData = new FormData();
     formData.append("file", file);
-
-    uploadStatus.classList.remove("hidden");
-    uploadStatus.textContent = `Ingesting & analyzing: ${file.name}...`;
 
     try {
       const res = await fetch("/api/upload", {
@@ -174,20 +163,18 @@ document.addEventListener("DOMContentLoaded", () => {
         uploadStatus.textContent = `Upload failed: ${data.error}`;
         return;
       }
-      uploadStatus.textContent = `Analysis complete: ${file.name}`;
+      uploadStatus.textContent = `✓ Forensic analysis completed for: ${file.name}`;
       renderReport(data);
     } catch (e) {
-      uploadStatus.textContent = `Error: ${e.message}`;
+      uploadStatus.textContent = `Upload error: ${e.message}`;
     }
   }
 
   // -----------------------------------------------------------------------
-  // Render Forensic Report
+  // Render Forensic Analysis Report to UI
   // -----------------------------------------------------------------------
   function renderReport(report) {
-    currentReport = report;
-    scannerPlaceholder.classList.add("hidden");
-    scannerResults.classList.remove("hidden");
+    if (!report) return;
 
     const score = report.posture_score || {};
     const risk = report.risk_classification || {};
@@ -198,190 +185,215 @@ document.addEventListener("DOMContentLoaded", () => {
     const cTls = report.client_tls || {};
     const cert = report.certificate || {};
     const bchain = report.blockchain_evidence || {};
+    const anomaly = report.anomaly_detection || {};
 
-    // 1. Score & Grade Dial
+    // 1. Posture Score & Letter Grade
+    const overallScore = score.overall_score || 0;
     const grade = score.overall_grade || "F";
-    const gradeBox = document.getElementById("score-grade-box");
-    gradeBox.textContent = grade;
+    const gradeEl = document.getElementById("score-grade");
+    const scoreNumEl = document.getElementById("score-number");
 
-    let gradeColor = "#00e676"; // green
-    if (grade === "A" || grade === "A+") gradeColor = "#00e676";
-    else if (grade === "B" || grade === "C") gradeColor = "#fbbf24";
-    else gradeColor = "#f43f5e";
+    if (gradeEl) {
+      gradeEl.textContent = grade;
+      let color = "#00e676";
+      if (grade === "A" || grade === "A+") color = "#00e676";
+      else if (grade === "B" || grade === "C") color = "#fbbf24";
+      else color = "#f43f5e";
 
-    gradeBox.style.borderColor = gradeColor;
-    gradeBox.style.color = gradeColor;
-    gradeBox.style.boxShadow = `0 0 15px ${gradeColor}33`;
-
-    document.getElementById("score-num").textContent = score.overall_score || 0;
-
-    // 2. Risk Overview
-    const riskPill = document.getElementById("risk-pill");
-    const predRisk = risk.predicted_risk || "EVALUATING";
-    riskPill.textContent = predRisk;
-    if (predRisk === "SECURE") {
-      riskPill.style.background = "rgba(0, 230, 118, 0.15)";
-      riskPill.style.color = "#00e676";
-    } else if (predRisk === "CRITICAL") {
-      riskPill.style.background = "rgba(244, 63, 94, 0.15)";
-      riskPill.style.color = "#f43f5e";
-    } else {
-      riskPill.style.background = "rgba(251, 191, 36, 0.15)";
-      riskPill.style.color = "#fbbf24";
+      gradeEl.style.borderColor = color;
+      gradeEl.style.color = color;
+      gradeEl.style.boxShadow = `0 0 20px ${color}33`;
     }
 
-    document.getElementById("executive-summary").textContent = advisory.executive_summary || "Session analyzed.";
-    document.getElementById("meta-file").textContent = meta.filename || "--";
-    document.getElementById("meta-packets").textContent = meta.total_packets || 0;
-    document.getElementById("meta-duration").textContent = meta.duration_seconds || 0;
+    if (scoreNumEl) scoreNumEl.textContent = overallScore;
 
-    // 3. Protocol & Downgrade
-    document.getElementById("val-protocol").textContent = emailMeta.protocol || "UNKNOWN";
-    document.getElementById("val-starttls-offered").textContent = emailMeta.starttls_offered ? "YES" : "NO";
-    document.getElementById("val-starttls-initiated").textContent = emailMeta.starttls_initiated ? "YES" : "NO";
+    // 2. Breakdown Progress Bars
+    const bk = score.breakdown || {};
+    setBar("proto", bk.protocol || 0, 30);
+    setBar("cipher", bk.cipher || 0, 25);
+    setBar("kex", bk.kex || 0, 25);
+    setBar("cert", bk.cert || 0, 20);
+
+    // 3. Risk Badge & Executive Brief
+    const riskBadge = document.getElementById("risk-badge");
+    const predRisk = risk.predicted_risk || "EVALUATING";
+    if (riskBadge) {
+      riskBadge.textContent = predRisk;
+      if (predRisk === "SECURE") {
+        riskBadge.style.background = "rgba(0, 230, 118, 0.15)";
+        riskBadge.style.color = "#00e676";
+      } else if (predRisk === "CRITICAL") {
+        riskBadge.style.background = "rgba(244, 63, 94, 0.15)";
+        riskBadge.style.color = "#f43f5e";
+      } else {
+        riskBadge.style.background = "rgba(251, 191, 36, 0.15)";
+        riskBadge.style.color = "#fbbf24";
+      }
+    }
+
+    setText("executive-summary-text", advisory.executive_summary || "Session analyzed successfully.");
+    setText("target-meta", `Target: ${meta.filename || "--"} | Packets: ${meta.total_packets || 0} | Duration: ${meta.duration_seconds || 0}s`);
+
+    // 4. Protocol & STARTTLS State
+    setText("val-proto", emailMeta.protocol || "UNKNOWN");
+    setText("val-starttls-offered", emailMeta.starttls_offered ? "YES" : "NO");
+    setText("val-starttls-initiated", emailMeta.starttls_initiated ? "YES" : "NO");
 
     const dgEl = document.getElementById("val-downgrade");
-    if (emailMeta.starttls_downgraded) {
-      dgEl.textContent = "DETECTED (STRIPPED)";
-      dgEl.style.color = "#f43f5e";
-    } else {
-      dgEl.textContent = "None (Safe)";
-      dgEl.style.color = "#00e676";
+    if (dgEl) {
+      if (emailMeta.starttls_downgraded) {
+        dgEl.textContent = "STRIPPING ATTACK DETECTED";
+        dgEl.style.color = "#f43f5e";
+      } else {
+        dgEl.textContent = "None (Safe Transition)";
+        dgEl.style.color = "#00e676";
+      }
     }
 
     const authEl = document.getElementById("val-auth-leak");
-    if (emailMeta.plaintext_auth_observed) {
-      authEl.textContent = "LEAKED (AUTH LOGIN)";
-      authEl.style.color = "#f43f5e";
-    } else {
-      authEl.textContent = "None (Encrypted)";
-      authEl.style.color = "#00e676";
+    if (authEl) {
+      if (emailMeta.plaintext_auth_observed) {
+        authEl.textContent = "LEAKED (AUTH LOGIN)";
+        authEl.style.color = "#f43f5e";
+      } else {
+        authEl.textContent = "None (Encrypted Session)";
+        authEl.style.color = "#00e676";
+      }
     }
 
-    // 4. Cipher Suite & PFS
-    document.getElementById("val-tls-version").textContent = sTls.version || cTls.version || "None";
-    document.getElementById("val-cipher-name").textContent = sTls.cipher_name || "None Negotiated";
+    const creds = emailMeta.credentials_leaked || [];
+    setText("val-sniffed-creds", creds.length > 0 ? creds.join(", ") : "None Detected");
+
+    // 5. TLS Dissection & Ciphers
+    setText("val-tls-version", sTls.version || cTls.version || "None Negotiated");
+    setText("val-cipher-name", sTls.cipher_name || "None Selected");
 
     const pfs = sTls.cipher_meta?.pfs;
     const pfsEl = document.getElementById("val-pfs");
-    if (pfs) {
-      pfsEl.textContent = "ENABLED (ECDHE)";
-      pfsEl.style.color = "#00e676";
-    } else {
-      pfsEl.textContent = "DISABLED (Static RSA)";
-      pfsEl.style.color = "#f43f5e";
+    if (pfsEl) {
+      pfsEl.textContent = pfs ? "ENABLED (ECDHE)" : "DISABLED (Static RSA)";
+      pfsEl.style.color = pfs ? "#00e676" : "#f43f5e";
     }
 
     const enc = sTls.cipher_meta?.enc || "N/A";
     const mac = sTls.cipher_meta?.mac || "N/A";
-    document.getElementById("val-enc-mac").textContent = `${enc} / ${mac}`;
+    setText("val-enc-mac", `${enc} / ${mac}`);
 
     const vulns = sTls.cipher_meta?.vulns || [];
     const cveEl = document.getElementById("val-cve-flags");
-    if (vulns.length > 0) {
-      cveEl.textContent = vulns.join(", ");
-      cveEl.style.color = "#f43f5e";
-    } else {
-      cveEl.textContent = "None (Clean)";
-      cveEl.style.color = "#00e676";
+    if (cveEl) {
+      cveEl.textContent = vulns.length > 0 ? vulns.join(", ") : "None (Clean)";
+      cveEl.style.color = vulns.length > 0 ? "#f43f5e" : "#00e676";
     }
 
-    // 5. X.509 Certificate
+    setText("val-ciphers-offered", `${cTls.ciphers_offered_count || 0} suites`);
+
+    // 6. X.509 Certificate Chain
     if (cert && cert.subject) {
-      document.getElementById("val-cert-subject").textContent = cert.subject.CN || "Unknown Subject";
-      document.getElementById("val-cert-issuer").textContent = cert.issuer.CN || "Unknown Issuer";
-      document.getElementById("val-cert-bits").textContent = `${cert.public_key_bits || 0} bits (${cert.public_key_algorithm || "Unknown"})`;
-      document.getElementById("val-cert-sig").textContent = cert.signature_algorithm || "Unknown";
-      document.getElementById("val-cert-valid").textContent = cert.is_expired ? "EXPIRED" : "VALID";
-      document.getElementById("val-cert-valid").style.color = cert.is_expired ? "#f43f5e" : "#00e676";
+      setText("val-cert-subject", cert.subject.CN || "Unknown Subject");
+      setText("val-cert-issuer", cert.issuer.CN || "Unknown Issuer");
+      setText("val-cert-bits", `${cert.public_key_bits || 0} bits (${cert.public_key_algorithm || "Unknown"})`);
+      setText("val-cert-sig", cert.signature_algorithm || "Unknown");
+      const validEl = document.getElementById("val-cert-valid");
+      if (validEl) {
+        validEl.textContent = cert.is_expired ? "EXPIRED" : "VALID";
+        validEl.style.color = cert.is_expired ? "#f43f5e" : "#00e676";
+      }
+      setText("val-cert-sha512", cert.sha512_fingerprint || "--");
     } else {
-      document.getElementById("val-cert-subject").textContent = "No Certificate";
-      document.getElementById("val-cert-issuer").textContent = "--";
-      document.getElementById("val-cert-bits").textContent = "--";
-      document.getElementById("val-cert-sig").textContent = "--";
-      document.getElementById("val-cert-valid").textContent = "--";
+      setText("val-cert-subject", "No Certificate Handshake");
+      setText("val-cert-issuer", "--");
+      setText("val-cert-bits", "--");
+      setText("val-cert-sig", "--");
+      setText("val-cert-valid", "--");
+      setText("val-cert-sha512", "--");
     }
 
-    // 6. JA3 & Anomaly
-    const anomaly = report.anomaly_detection || {};
-    document.getElementById("val-anomaly-level").textContent = anomaly.anomaly_level || "NORMAL";
-    document.getElementById("val-anomaly-score").textContent = anomaly.anomaly_score || "0.00";
-    document.getElementById("val-sni").textContent = cTls.sni || "None";
-    document.getElementById("val-ja3-md5").textContent = cTls.ja3_hash || "--";
-    document.getElementById("val-ja3-512").textContent = cTls.ja3_512 || "--";
+    // 7. JA3 & Anomaly Detection
+    setText("val-anomaly-level", anomaly.anomaly_level || "NORMAL");
+    setText("val-anomaly-score", anomaly.anomaly_score != null ? anomaly.anomaly_score.toFixed(2) : "0.00");
+    setText("val-sni", cTls.sni || "None");
+    setText("val-ja3-md5", cTls.ja3_hash || "--");
+    setText("val-ja3-512", cTls.ja3_512 || "--");
+    const reasons = anomaly.reasons || [];
+    setText("val-anomaly-reasons", reasons.length > 0 ? reasons.join("; ") : "Baseline nominal");
 
-    // 7. Blockchain Evidence Seal
-    document.getElementById("seal-block-idx").textContent = `#${bchain.block_index || 1}`;
-    document.getElementById("seal-block-hash").textContent = bchain.block_hash || "--";
-    document.getElementById("seal-merkle-root").textContent = bchain.merkle_root || "--";
-    document.getElementById("mini-block-hash").textContent = bchain.block_hash ? bchain.block_hash.substring(0, 48) + "..." : "Awaiting Ingestion";
+    // 8. Blockchain Ledger Seal
+    setText("bchain-idx", `#${bchain.block_index != null ? bchain.block_index : 1}`);
+    setText("bchain-block-hash", bchain.block_hash || "--");
+    setText("bchain-merkle-root", bchain.merkle_root || "--");
 
-    // 8. Remediation Playbook
-    const postfixConfig = advisory.hardening_playbook?.postfix || "";
-    const dovecotConfig = advisory.hardening_playbook?.dovecot || "";
-    document.getElementById("remediation-text").textContent = postfixConfig + "\n" + dovecotConfig;
-  }
+    // 9. MITRE ATT&CK Threat Mapping
+    const mitreTbody = document.getElementById("mitre-tbody");
+    if (mitreTbody) {
+      const mappings = advisory.mitre_mappings || [];
+      if (mappings.length === 0) {
+        mitreTbody.innerHTML = `<tr><td colspan="4" style="color: #64748b;">No active adversarial tactics or MITM techniques observed.</td></tr>`;
+      } else {
+        mitreTbody.innerHTML = mappings.map(m => `
+          <tr>
+            <td style="font-family: monospace; color: #00ffc2; font-weight: bold;">${escapeHtml(m.id)}</td>
+            <td><strong>${escapeHtml(m.name)}</strong></td>
+            <td>${escapeHtml(m.tactic)}</td>
+            <td>${escapeHtml(m.description)}</td>
+          </tr>
+        `).join("");
+      }
+    }
 
-  function showLoading() {
-    scannerPlaceholder.classList.remove("hidden");
-    scannerResults.classList.add("hidden");
-    scannerPlaceholder.innerHTML = `
-      <div class="placeholder-graphic">
-        <div class="pulse-indicator" style="width: 24px; height: 24px; margin: 0 auto 16px;"></div>
-      </div>
-      <h3>Dissecting Packets & Evaluating Cryptographic Handshakes...</h3>
-      <p>Running pure-Python stream reassembly, JA3-512 hashing, X.509 ASN.1 parsing, and AI classification.</p>
-    `;
+    // 10. Hardening Playbook
+    const pfx = advisory.hardening_playbook?.postfix || "";
+    const dvc = advisory.hardening_playbook?.dovecot || "";
+    setText("config-pre", (pfx + "\n" + dvc).trim());
   }
 
   // -----------------------------------------------------------------------
-  // Helper Controls
+  // Helper Utilities
   // -----------------------------------------------------------------------
-  btnClearData.addEventListener("click", () => {
-    scannerResults.classList.add("hidden");
-    scannerPlaceholder.classList.remove("hidden");
-    scannerPlaceholder.innerHTML = `
-      <div class="placeholder-graphic">
-        <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="#334155" stroke-width="1.5">
-          <circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>
-        </svg>
-      </div>
-      <h3>Select a Scenario or Upload PCAP to Trigger Real-Time Inspection</h3>
-      <p>The forensic engine will reconstruct the TCP session, evaluate cryptographic handshakes, run AI risk classification, and generate the posture score.</p>
-    `;
-    document.querySelectorAll(".scenario-card").forEach(c => c.classList.remove("active"));
-    document.getElementById("mini-block-hash").textContent = "Awaiting Forensic Stream Ingestion...";
-  });
+  function setBar(id, val, max) {
+    const textEl = document.getElementById(`score-val-${id}`);
+    const barEl = document.getElementById(`bar-${id}`);
+    if (textEl) textEl.textContent = `${val}/${max}`;
+    if (barEl) {
+      const pct = Math.max(0, Math.min(100, (val / max) * 100));
+      barEl.style.width = `${pct}%`;
+    }
+  }
 
-  btnCopyConfig.addEventListener("click", () => {
-    const text = document.getElementById("remediation-text").textContent;
-    navigator.clipboard.writeText(text).then(() => {
-      btnCopyConfig.textContent = "Copied!";
-      setTimeout(() => { btnCopyConfig.textContent = "Copy Hardened Config"; }, 2000);
-    });
-  });
-
-  // Quick Action Navbar Buttons
-  btnQuickEnterprise.addEventListener("click", () => {
-    analyzeSample("enterprise_smtps_hardened.pcap");
-  });
-
-  btnQuickAttack.addEventListener("click", () => {
-    analyzeSample("mitm_starttls_stripping_attack.pcap");
-  });
-
-  // Info Modal
-  btnInfo.addEventListener("click", () => modalInfo.classList.remove("hidden"));
-  modalClose.addEventListener("click", () => modalInfo.classList.add("hidden"));
-  modalInfo.addEventListener("click", (e) => {
-    if (e.target === modalInfo) modalInfo.classList.add("hidden");
-  });
+  function setText(id, text) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = text;
+  }
 
   function escapeHtml(str) {
     if (!str) return "";
     return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   }
 
-  // Auto-load presets
+  // Copy Syntax Action
+  if (btnCopySyntax) {
+    btnCopySyntax.addEventListener("click", () => {
+      const text = document.getElementById("config-pre")?.textContent || "";
+      navigator.clipboard.writeText(text).then(() => {
+        btnCopySyntax.textContent = "Copied!";
+        setTimeout(() => { btnCopySyntax.textContent = "Copy Hardened Config"; }, 2000);
+      });
+    });
+  }
+
+  // Navbar Quick Action Buttons
+  if (btnQuickEnterprise) {
+    btnQuickEnterprise.addEventListener("click", () => {
+      analyzeSample("enterprise_smtps_hardened.pcap");
+    });
+  }
+
+  if (btnQuickAttack) {
+    btnQuickAttack.addEventListener("click", () => {
+      analyzeSample("mitm_starttls_stripping_attack.pcap");
+    });
+  }
+
+  // Initial Load
   loadSamples();
 });
