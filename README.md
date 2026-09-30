@@ -34,26 +34,3 @@ Cyber Tech resolves this critical blind spot:
 ---
 
 ## 🚀 Quick Start & Local Execution
-
-```bash
-# 1. Clone repository
-git clone https://github.com/<YOUR_USERNAME>/cyber-tech.git
-cd cyber-tech
-
-# 2. Run unit tests
-python3 -m unittest discover tests
-
-# 3. Launch Cyber Tech Dashboard
-python3 app.py
-```
-Open **`http://localhost:8080`** in your browser.
-
----
-
-## ☁️ Deploying to Render (1-Click)
-
-This repository includes native `render.yaml` blueprint configuration:
-1. Push repository to GitHub.
-2. Log in to [Render Dashboard](https://dashboard.render.com).
-3. Select **New +** $\rightarrow$ **Blueprint** $\rightarrow$ Connect `cyber-tech`.
-4. Render automatically applies the build command (`pip install -r requirements.txt`) and start command (`python app.py`).
